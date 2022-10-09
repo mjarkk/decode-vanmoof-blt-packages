@@ -9,14 +9,16 @@ import (
 	"strings"
 )
 
-var bikeId = ""
+var bikeID = ""
 var connectionHandle uint16
+var hideChallenges bool
 
 func main() {
 	var encryptionKey, btSnoopFile string
-	flag.StringVar(&bikeId, "bikeId", "", "Your bike's id (required) (\"34 56 78 9a bc de\")")
+	flag.StringVar(&bikeID, "bikeId", "", "Your bike's id (required) (\"34 56 78 9a bc de\")")
 	flag.StringVar(&btSnoopFile, "file", "", "The file you want to inspect (required)")
 	flag.StringVar(&encryptionKey, "encryptionKey", "", "Your bike's encryption key (not required)")
+	flag.BoolVar(&hideChallenges, "hideChallenges", false, "Hide CHALLENGE characteristics and hide their presence in write requests")
 	flag.Parse()
 
 	exit := false
@@ -24,21 +26,21 @@ func main() {
 		printErr(`file argument not set, usage: --file "bt_snoop.log"`)
 		exit = true
 	}
-	if bikeId == "" {
+	if bikeID == "" {
 		printErr(`bikeId argument not set, usage: --bikeId "34 56 78 9a bc de"`)
 		exit = true
 	} else {
 		removeCharacters := []string{" ", "-", ":"}
 		for _, remove := range removeCharacters {
-			bikeId = strings.ReplaceAll(bikeId, remove, "")
+			bikeID = strings.ReplaceAll(bikeID, remove, "")
 		}
 
-		parsedBikeId, err := hex.DecodeString(bikeId)
+		parsedBikeID, err := hex.DecodeString(bikeID)
 		if err != nil {
 			printErr(`invalid bike id, error: ` + err.Error())
 			exit = true
 		} else {
-			bikeId = bToHex(parsedBikeId)
+			bikeID = bToHex(parsedBikeID)
 		}
 	}
 	if exit {
@@ -327,6 +329,11 @@ func parseAtt(data []byte, nr Nr) {
 			}
 		}
 
+		uuid := handleToUUID[lastRWRequestHandle].UUID
+		if hideChallenges && uuid == "6acc5501-e631-4069-944d-b8ca7598ad50" {
+			return
+		}
+
 		payloadAsText := hexStyle(payload, 0)
 		if len(payload) != 0 && len(payload)%16 == 0 {
 			if canDecrypt() {
@@ -339,7 +346,7 @@ func parseAtt(data []byte, nr Nr) {
 			} else {
 				payloadAsText = hexStyle(payload, hexStyleUnDecrypted)
 			}
-		} else if method == 0x0b && handleToUUID[lastRWRequestHandle].UUID == "6acc5501-e631-4069-944d-b8ca7598ad50" {
+		} else if method == 0x0b && uuid == "6acc5501-e631-4069-944d-b8ca7598ad50" {
 			payloadAsText = hexStyle(payload, hexStyleContainsNonce)
 		}
 
@@ -419,7 +426,7 @@ func parseEvent(data []byte, nr Nr) {
 		// Sub Event: LE Enhanced Connection Complete (0x0a)
 
 		address := bToHex(reverse(data[8:14]))
-		if address != bikeId {
+		if address != bikeID {
 			// This is not a package we're interested in
 			return
 		}

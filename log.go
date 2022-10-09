@@ -52,10 +52,13 @@ func hexStyle(b []byte, flags hexStyleFlags) string {
 	bytesString := ""
 	for i, bt := range b {
 		btAsString := hex.EncodeToString([]byte{bt})
-		if i != 0 {
+		if bytesString != "" {
 			bytesString += " "
 		}
 		if flags&hexStyleContainsNonce == hexStyleContainsNonce && i <= 1 {
+			if hideChallenges {
+				continue
+			}
 			bytesString += style.String(btAsString).Foreground(nonceColor).String()
 		} else {
 			bytesString += style.String(btAsString).Foreground(termenv.ANSIGreen).String()
