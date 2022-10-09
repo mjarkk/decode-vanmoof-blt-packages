@@ -293,12 +293,16 @@ func parseAtt(data []byte, nr Nr) {
 		payload := data[3:]
 
 		payloadText := hexStyle(payload, 0)
-		if len(payload) != 0 && len(payload)%16 == 0 && canDecrypt() {
-			decrypted, err := decrypt(payload)
-			if err != nil {
-				fmt.Printf("%s unable to decrypt %s, error: %s\n", nr, hexStyle(data[3:], 0), err.Error())
+		if len(payload) != 0 && len(payload)%16 == 0 {
+			if canDecrypt() {
+				decrypted, err := decrypt(payload)
+				if err != nil {
+					fmt.Printf("%s unable to decrypt %s, error: %s\n", nr, hexStyle(data[3:], 0), err.Error())
+				} else {
+					payloadText = hexStyle(decrypted, hexStyleDecrypted|hexStyleContainsNonce)
+				}
 			} else {
-				payloadText = hexStyle(decrypted, hexStyleDecrypted|hexStyleContainsNonce)
+				payloadText = hexStyle(payload, hexStyleUnDecrypted)
 			}
 		} else if len(payload) == 2 {
 			uuid, found := handleToUUID[lastRWRequestHandle]
