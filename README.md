@@ -35,3 +35,16 @@ This value can be obtained from the vanmoof api.
 This should be the encryption key of your bike
 
 This value can be obtained from the vanmoof api.
+
+### Obtain bikeId and encryptionKey
+
+1. Login to [mooovy.app](https://mooovy.app/) using chrome
+2. Open the developer tools (F12)
+3. Go to the Application tab
+4. Go to the Local Storage tab and select Select the `https://mooovy.app` entry
+5. Click on `vm-bike-credentials`
+6. Copy the following values:
+   - `encryptionKey` = `encryptionKey`
+   - `mac` = `bikeId`
+
+![HowTo](/howto.png?raw=true "Chrome browser how to What to look for in chrome")
