@@ -46,6 +46,7 @@ const (
 )
 
 var nonceColor = termenv.ANSIYellow
+var nonEssentialColor = termenv.ANSIBrightBlack
 
 func hexStyle(b []byte, flags hexStyleFlags) string {
 	bytesString := ""
@@ -64,11 +65,11 @@ func hexStyle(b []byte, flags hexStyleFlags) string {
 	resp := fmt.Sprintf("%s[%s]", style.String(strconv.Itoa(len(b))).Italic(), bytesString)
 
 	if flags&hexStyleDecrypted == hexStyleDecrypted {
-		resp += style.String(" Decrypted").Foreground(termenv.ANSIBrightBlack).String()
+		resp += style.String(" Decrypted").Foreground(nonEssentialColor).String()
 	}
 
 	if flags&hexStyleUnDecrypted == hexStyleUnDecrypted {
-		resp += style.String(" Seems encrypted").Foreground(termenv.ANSIBrightBlack).String()
+		resp += style.String(" Seems encrypted").Foreground(nonEssentialColor).String()
 	}
 
 	return resp
@@ -80,15 +81,15 @@ func humanHandle(handle uint16) string {
 		return fmt.Sprintf("(HANDLE uint16(%d))", handle)
 	}
 
-	hint, ok := knownProperties[handleUUID]
+	hint, ok := knownProperties[handleUUID.UUID]
 	hintText := ""
 	if ok {
 		hintText = fmt.Sprintf(" (%s)", hint)
 	}
 
-	uuidParts := strings.Split(handleUUID, "-")
+	uuidParts := strings.Split(handleUUID.UUID, "-")
 	uuidParts[0] = style.String(uuidParts[0]).Foreground(termenv.ANSIBrightCyan).String()
-	styledHandleUuid := strings.Join(uuidParts, "-")
+	styledHandleUUID := strings.Join(uuidParts, "-")
 
-	return styledHandleUuid + hintText
+	return styledHandleUUID + hintText
 }

@@ -193,7 +193,15 @@ func decodeHciAclPacket(data []byte, nr Nr) {
 	}
 }
 
-var handleToUUID = map[uint16]string{}
+type HandleDetials struct {
+	UUID string
+
+	// When a ATT Find Information Method is used the followed write request to that handle are labled by wireshark as configuration and not a valud
+	// This value is used to determine if the handle write request is just for configuration
+	WriteSeemsToBeForConfigs bool
+}
+
+var handleToUUID = map[uint16]HandleDetials{}
 
 var knownProperties = map[string]string{
 	// SECURITY_SERVICE
@@ -264,16 +272,13 @@ func parseAtt(data []byte, nr Nr) {
 			return
 		}
 
-		// TODO match handle or characteristicHandle with known uuids somehow
-		//   The unknown handles in the output seems to have something to do with these requests
-
-		// handle := binary.LittleEndian.Uint16(data[2:4])
-		// _, ok1 := handleToUUID[handle]
-		// characteristicHandle := binary.LittleEndian.Uint16(data[4:6])
-		// _, ok2 := handleToUUID[characteristicHandle]
-
-		// fmt.Println(handle, characteristicHandle)
-		// fmt.Println(ok1, ok2)
+		// TODO This seems like a dirty hack
+		handle := binary.LittleEndian.Uint16(data[2:4])
+		_, handleFound := handleToUUID[handle]
+		perviouseHandleUUID, perviouseFound := handleToUUID[handle-1]
+		if !handleFound && perviouseFound {
+			handleToUUID[handle] = HandleDetials{UUID: perviouseHandleUUID.UUID, WriteSeemsToBeForConfigs: true}
+		}
 	case 0x01, 0x02, 0x03, 0x04:
 		// ..00 0001 = Method: Error Response (0x01)
 		// ..00 0010 = Method: Exchange MTU Request (0x02)
@@ -292,6 +297,12 @@ func parseAtt(data []byte, nr Nr) {
 				fmt.Printf("%s unable to decrypt %s, error: %s\n", nr, hexStyle(data[3:], 0), err.Error())
 			} else {
 				payloadText = hexStyle(decrypted, hexStyleDecrypted|hexStyleContainsNonce)
+			}
+		} else if len(payload) == 2 {
+			uuid, found := handleToUUID[lastRWRequestHandle]
+			if found && uuid.WriteSeemsToBeForConfigs {
+				configMsg := fmt.Sprintf(" Probably ATT Config (Notification: %t)", payload[0]&0x01 == 0x01)
+				payloadText += " " + style.String(configMsg).Foreground(nonEssentialColor).String()
 			}
 		}
 
@@ -328,7 +339,7 @@ func parseAtt(data []byte, nr Nr) {
 			} else {
 				payloadAsText = hexStyle(payload, hexStyleUnDecrypted)
 			}
-		} else if method == 0x0b && handleToUUID[lastRWRequestHandle] == "6acc5501-e631-4069-944d-b8ca7598ad50" {
+		} else if method == 0x0b && handleToUUID[lastRWRequestHandle].UUID == "6acc5501-e631-4069-944d-b8ca7598ad50" {
 			payloadAsText = hexStyle(payload, hexStyleContainsNonce)
 		}
 
@@ -349,7 +360,7 @@ func parseAtt(data []byte, nr Nr) {
 
 			if attributeLen == 21 {
 				uuid := bToUUID(data[5:21], true)
-				handleToUUID[characteristicValueHandle] = uuid
+				handleToUUID[characteristicValueHandle] = HandleDetials{UUID: uuid}
 			} else if attributeLen == 18 {
 				// fmt.Println(nr)
 				// UUID = generic access profile
