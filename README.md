@@ -36,6 +36,14 @@ This should be the encryption key of your bike
 
 This value can be obtained from the vanmoof api.
 
+### `-hideChallenges`
+
+Hide challenge requests and hide the challenge / nonce inside the write requests
+
+### `-showOnlyFirstPartOfUuid`
+
+Only shows the first part of UUIDs as the remainder of the uuid always seems to stays the same.
+
 ### Obtain bikeId and encryptionKey
 
 1. Login to [mooovy.app](https://mooovy.app/) using chrome
