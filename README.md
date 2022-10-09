@@ -18,19 +18,21 @@ decode-vanmoof-blt-packages \
 
 ### Arguments
 
-#### `-file`
+#### `-file` _Required_
 
 This is the bluetooth sniff file you want to inspect.
 
 This file should be in the BTSnoop file format.
 
-#### `-bikeId`
+#### `-bikeId` _Required_
 
 This should be the id of your bike.
 
 This value can be obtained from the vanmoof api.
 
 #### `-encryptionKey`
+
+Tries to decrypt the bluetooth packet values. Without this argument you can see wich characteristics that are send/recived but cannot really see the values unless you want to decrypt them yourself.
 
 This should be the encryption key of your bike
 
