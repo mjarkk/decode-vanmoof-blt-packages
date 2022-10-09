@@ -11,7 +11,7 @@ import (
 
 var bikeID = ""
 var connectionHandle uint16
-var hideChallenges bool
+var hideChallenges, showOnlyFirstPartOfUUID bool
 
 func main() {
 	var encryptionKey, btSnoopFile string
@@ -19,6 +19,7 @@ func main() {
 	flag.StringVar(&btSnoopFile, "file", "", "The file you want to inspect (required)")
 	flag.StringVar(&encryptionKey, "encryptionKey", "", "Your bike's encryption key (not required)")
 	flag.BoolVar(&hideChallenges, "hideChallenges", false, "Hide CHALLENGE characteristics and hide their presence in write requests")
+	flag.BoolVar(&showOnlyFirstPartOfUUID, "showOnlyFirstPartOfUuid", false, "Only show the first part of UUIDs")
 	flag.Parse()
 
 	exit := false

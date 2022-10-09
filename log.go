@@ -92,6 +92,9 @@ func humanHandle(handle uint16) string {
 
 	uuidParts := strings.Split(handleUUID.UUID, "-")
 	uuidParts[0] = style.String(uuidParts[0]).Foreground(termenv.ANSIBrightCyan).String()
+	if showOnlyFirstPartOfUUID {
+		return uuidParts[0] + hintText
+	}
 	styledHandleUUID := strings.Join(uuidParts, "-")
 
 	return styledHandleUUID + hintText
