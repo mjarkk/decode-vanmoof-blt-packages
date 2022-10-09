@@ -56,3 +56,12 @@ Only shows the first part of UUIDs as the remainder of the uuid always seems to 
    - `mac` = `bikeId`
 
 ![HowTo](/howto.png?raw=true "Chrome browser how to What to look for in chrome")
+
+### How to sniff bluetooth?
+
+#### Host: Macos, Client: Macos & IOS
+
+1. Download [XCode Additional Tools](https://developer.apple.com/xcode/resources/)
+2. Open `Hardware > PacketLogger`
+3. Start logging (Make sure your bike was not connected to your **device** at the moment you started logging!)
+4. In the menu bar select `File > Export > BTSnoop..` or <kbd>⇧ Shift</kbd> + <kbd>⌘ Command</kbd> + <kbd>E</kbd>
