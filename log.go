@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/muesli/termenv"
@@ -40,7 +41,8 @@ type hexStyleFlags int
 
 const (
 	hexStyleDecrypted     hexStyleFlags = 1
-	hexStyleContainsNonce hexStyleFlags = 1 << 1
+	hexStyleUnDecrypted   hexStyleFlags = 1 << 1
+	hexStyleContainsNonce hexStyleFlags = 1 << 2
 )
 
 var nonceColor = termenv.ANSIYellow
@@ -59,10 +61,14 @@ func hexStyle(b []byte, flags hexStyleFlags) string {
 		}
 	}
 
-	resp := fmt.Sprintf("[%s]", bytesString)
+	resp := fmt.Sprintf("%s[%s]", style.String(strconv.Itoa(len(b))).Italic(), bytesString)
 
 	if flags&hexStyleDecrypted == hexStyleDecrypted {
 		resp += style.String(" Decrypted").Foreground(termenv.ANSIBrightBlack).String()
+	}
+
+	if flags&hexStyleUnDecrypted == hexStyleUnDecrypted {
+		resp += style.String(" Seems encrypted").Foreground(termenv.ANSIBrightBlack).String()
 	}
 
 	return resp

@@ -255,19 +255,35 @@ func parseAtt(data []byte, nr Nr) {
 	methodMask := byte(0x3F) /* 00111111 */
 	method := data[0] & methodMask
 	switch method {
-	case 0x01, 0x02, 0x03, 0x04, 0x05:
+	case 0x05:
+		// ..00 0101 = Method: Find Information Response (0x05)
+		// findInformation := data[0]
+		uuidFormat := data[1]
+		if uuidFormat != 0x01 {
+			fmt.Printf("%d unkonwn find information response uuid format %d", nr, uuidFormat)
+			return
+		}
+
+		// TODO match handle or characteristicHandle with known uuids somehow
+		//   The unknown handles in the output seems to have something to do with these requests
+
+		// handle := binary.LittleEndian.Uint16(data[2:4])
+		// _, ok1 := handleToUUID[handle]
+		// characteristicHandle := binary.LittleEndian.Uint16(data[4:6])
+		// _, ok2 := handleToUUID[characteristicHandle]
+
+		// fmt.Println(handle, characteristicHandle)
+		// fmt.Println(ok1, ok2)
+	case 0x01, 0x02, 0x03, 0x04:
 		// ..00 0001 = Method: Error Response (0x01)
 		// ..00 0010 = Method: Exchange MTU Request (0x02)
 		// ..00 0011 = Method: Exchange MTU Response (0x03)
 		// ..00 0100 = Method: Find Information Request (0x04)
-		// ..00 0101 = Method: Find Information Response (0x05)
 		// Ignore
 	case 0x12:
 		// ..01 0010 = Method: Write Request (0x12)
 		lastRWRequestHandle = binary.LittleEndian.Uint16(data[1:3])
 		payload := data[3:]
-
-		// TODO decrypt
 
 		payloadText := hexStyle(payload, 0)
 		if len(payload) != 0 && len(payload)%16 == 0 && canDecrypt() {
@@ -301,12 +317,16 @@ func parseAtt(data []byte, nr Nr) {
 		}
 
 		payloadAsText := hexStyle(payload, 0)
-		if len(payload) != 0 && len(payload)%16 == 0 && canDecrypt() {
-			decrypted, err := decrypt(payload)
-			if err != nil {
-				fmt.Printf("%s unable to decrypt %s, error: %s\n", nr, hexStyle(data[1:], 0), err.Error())
+		if len(payload) != 0 && len(payload)%16 == 0 {
+			if canDecrypt() {
+				decrypted, err := decrypt(payload)
+				if err != nil {
+					fmt.Printf("%s unable to decrypt %s, error: %s\n", nr, hexStyle(data[1:], 0), err.Error())
+				} else {
+					payloadAsText = hexStyle(decrypted, hexStyleDecrypted)
+				}
 			} else {
-				payloadAsText = hexStyle(decrypted, hexStyleDecrypted)
+				payloadAsText = hexStyle(payload, hexStyleUnDecrypted)
 			}
 		} else if method == 0x0b && handleToUUID[lastRWRequestHandle] == "6acc5501-e631-4069-944d-b8ca7598ad50" {
 			payloadAsText = hexStyle(payload, hexStyleContainsNonce)
@@ -329,9 +349,9 @@ func parseAtt(data []byte, nr Nr) {
 
 			if attributeLen == 21 {
 				uuid := bToUUID(data[5:21], true)
-				// fmt.Println(handle, characteristicValueHandle, uuid)
 				handleToUUID[characteristicValueHandle] = uuid
 			} else if attributeLen == 18 {
+				// fmt.Println(nr)
 				// UUID = generic access profile
 			} else {
 				fmt.Printf("%s unknown attribute len %d\n", nr, attributeLen)
@@ -355,6 +375,7 @@ func parseAtt(data []byte, nr Nr) {
 
 			if attributeLen == 6 {
 				// UUID = generic access profile
+				// fmt.Println(nr)
 			} else if attributeLen == 20 {
 				// uuid := bToUUID(data[4:20], true)
 				// fmt.Println(handle, groupEndHandle, uuid)
