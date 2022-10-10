@@ -115,9 +115,14 @@ func main() {
 		}
 	}
 
+	const hint = "\n  Make sure you started the bluetooth sniff before you connected your sniffed device to your bike or even have bluetooth disabled before you start the sniff"
+
 	if connectionHandle == 0 {
-		fmt.Println("It seems like we where unable to get the connection handle")
-		fmt.Println("Make sure you started the bluetooth sniff before you connected your sniffed device to your bike")
+		warn("It seems like we where unable to get the connection handle :^(" + hint)
+	}
+
+	if len(handleToUUID) == 0 {
+		warn("It seems like we where unable to get the bike's UUIDs :^(" + hint)
 	}
 }
 
@@ -127,10 +132,6 @@ func parseData(data []byte, nr Nr) {
 		parseEvent(data, nr)
 		return
 	}
-
-	// if nr > 67 {
-	// 	return
-	// }
 
 	if connectionHandle == 0 {
 		return
@@ -411,6 +412,30 @@ func parseAtt(data []byte, nr Nr) {
 				break
 			}
 		}
+	case 0x1b:
+		// ..01 1011 = Method: Handle Value Notification (0x1b)
+		handle := binary.LittleEndian.Uint16(data[1:3])
+		payload := data[3:]
+
+		uuid := handleToUUID[handle].UUID
+
+		payloadAsText := hexStyle(payload, 0)
+		if len(payload) != 0 && len(payload)%16 == 0 {
+			if canDecrypt() {
+				decrypted, err := decrypt(payload)
+				if err != nil {
+					fmt.Printf("%s unable to decrypt %s, error: %s\n", nr, hexStyle(data[1:], 0), err.Error())
+				} else {
+					payloadAsText = hexStyle(decrypted, hexStyleDecrypted)
+				}
+			} else {
+				payloadAsText = hexStyle(payload, hexStyleUnDecrypted)
+			}
+		} else if method == 0x0b && uuid == "6acc5501-e631-4069-944d-b8ca7598ad50" {
+			payloadAsText = hexStyle(payload, hexStyleContainsNonce)
+		}
+
+		fmt.Printf("%s %s %s > %s\n", nr, applyMeta("Notify"), humanHandle(handle), payloadAsText)
 	default:
 		fmt.Printf("%s Unknown ATT method %s\n", nr, bToHex([]byte{method}))
 	}
