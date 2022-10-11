@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -15,9 +16,9 @@ var hideChallenges, showOnlyFirstPartOfUUID bool
 
 func main() {
 	var encryptionKey, btSnoopFile string
-	flag.StringVar(&bikeID, "bikeId", "", "Your bike's id (required) (\"34 56 78 9a bc de\")")
 	flag.StringVar(&btSnoopFile, "file", "", "The file you want to inspect (required)")
 	flag.StringVar(&encryptionKey, "encryptionKey", "", "Your bike's encryption key (not required)")
+	flag.StringVar(&bikeID, "bikeId", "", "Your bike's id (\"34 56 78 9a bc de\")")
 	flag.BoolVar(&hideChallenges, "hideChallenges", false, "Hide CHALLENGE characteristics and hide their presence in write requests")
 	flag.BoolVar(&showOnlyFirstPartOfUUID, "showOnlyFirstPartOfUuid", false, "Only show the first part of UUIDs")
 	flag.Parse()
@@ -27,10 +28,7 @@ func main() {
 		printErr(`file argument not set, usage: --file "bt_snoop.log"`)
 		exit = true
 	}
-	if bikeID == "" {
-		printErr(`bikeId argument not set, usage: --bikeId "34 56 78 9a bc de"`)
-		exit = true
-	} else {
+	if bikeID != "" {
 		removeCharacters := []string{" ", "-", ":"}
 		for _, remove := range removeCharacters {
 			bikeID = strings.ReplaceAll(bikeID, remove, "")
@@ -119,10 +117,22 @@ func main() {
 
 	if connectionHandle == 0 {
 		warn("It seems like we where unable to get the connection handle :^(" + hint)
+	} else if len(handleToUUID) == 0 {
+		warn("It seems like we where unable to get the bike's UUIDs :^(" + hint)
 	}
 
-	if len(handleToUUID) == 0 {
-		warn("It seems like we where unable to get the bike's UUIDs :^(" + hint)
+	if bikeID == "" {
+		if len(deviceMacAddressToName) > 1 {
+			warn("It seems like there where multiple vanmoof bike's in your area")
+			warn("  please specify the bike you want to use")
+			for addr, bike := range deviceMacAddressToName {
+				nameToUse := bike.Full
+				if bike.Full == "" {
+					nameToUse = bike.Short
+				}
+				warn(fmt.Sprintf(`  To use %s add this arg: --bikeId "%s"`, nameToUse, addr))
+			}
+		}
 	}
 }
 
@@ -448,22 +458,126 @@ func reverse[S ~[]E, E any](s S) S {
 	return s
 }
 
+type DeviceNames struct {
+	Short string
+	Full  string
+}
+
+var deviceMacAddressToName = map[string]DeviceNames{}
+
 func parseEvent(data []byte, nr Nr) {
 	// parameterTotalLen := data[1]
 	subEvent := data[2]
 	switch subEvent {
+	case 0x02:
+		// Sub Event: LE Advertizing report (0x02)
+		// nrReports := data[3]
+		eventType := data[4]
+		// peerAddressType := data[5]
+		address := bToHex(reverse(data[6:12]))
+		dataLen := data[12]
+		if dataLen == 0 {
+			return
+		}
+
+		hasFlags := false
+		switch eventType {
+		case 0x00, 0x10, 0x20, 0x60:
+			// Event Type: Connectable Undirected Advertising (0x00)
+			// Event Type: Unknown (0x20)
+			// Event Type: Unknown (0x10)
+			// Event Type: Unknown (0x60)
+			hasFlags = true
+		case 0x04, 0x13, 0x014, 0x24:
+			// Event Type: Scan Response (0x04)
+			// Event Type: Unknown (0x13)
+			// Event Type: Unknown (0x14)
+			// Event Type: Unknown (0x24)
+			hasFlags = false
+		case 0x12, 0x22, 0x23:
+			// Event Type: Unknown (0x12)
+			// Event Type: Unknown (0x22)
+			// Event Type: Unknown (0x23)
+			// These events come up in blt sniffs but are never send by vanmoof bikes (seems like)
+			return
+		case 0x02, 0x03:
+			// Event Type: Non-Connectable Undirected Advertising (0x03)
+			// Event Type: Scannable Undirected Advertising (0x02)
+			// These event seem to come from devices that can't be connected to
+			return
+		default:
+			fmt.Printf("%s Unknown advertising event type 0x%x\n", nr, eventType)
+			return
+		}
+
+		data = data[13:]
+		if hasFlags {
+			flagsLen := data[0]
+			data = data[flagsLen+1:]
+		}
+
+		deviceNameLen := data[0]
+		deviceNameType := data[1]
+		if deviceNameType != 0x08 && deviceNameType != 0x09 {
+			return
+		}
+		shortDeivceName := deviceNameType == 0x08
+
+		deviceName := string(data[2 : deviceNameLen+1])
+
+		// Check if the device name seems like a vm bike (ES3-.....)
+		if len(deviceName) < 5 {
+			return
+		}
+		if deviceName[0] != 'E' {
+			return
+		}
+		foundDeviceVariants := false
+		for _, allowedDeviceVariant := range []byte{'S', 'X', 'A', 'V'} {
+			if deviceName[1] == allowedDeviceVariant {
+				foundDeviceVariants = true
+				break
+			}
+		}
+		if !foundDeviceVariants {
+			return
+		}
+
+		_, err := strconv.Atoi(string(deviceName[2]))
+		if err != nil {
+			return
+		}
+
+		if deviceName[3] != '-' {
+			return
+		}
+
+		dn := deviceMacAddressToName[address]
+		if shortDeivceName {
+			dn.Short = deviceName
+		} else {
+			dn.Full = deviceName
+		}
+		deviceMacAddressToName[address] = dn
 	case 0x0a:
 		// Sub Event: LE Enhanced Connection Complete (0x0a)
 
 		address := bToHex(reverse(data[8:14]))
-		if address != bikeID {
-			// This is not a package we're interested in
-			return
+
+		if bikeID != "" {
+			if address != bikeID {
+				// This is not a package we're interested in
+				return
+			}
+		} else {
+			_, ok := deviceMacAddressToName[address]
+			if !ok {
+				return
+			}
 		}
 
 		connectionHandle = binary.LittleEndian.Uint16(data[4:6])
-	case 0x04, 0x06, 0x03, 0x02:
-		// Sub Event: LE Advertizing report (0x02)
+	case 0x04, 0x06, 0x03:
 		// Sub Event: LE Connection Update Complete (0x03)
 		// Sub Event: LE Read Remote Features Complete (0x04)
 		// Sub Event: LE Remote Connection Parameter Request (0x06)

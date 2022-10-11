@@ -24,19 +24,19 @@ This is the bluetooth sniff file you want to inspect.
 
 This file should be in the BTSnoop file format.
 
-#### `-bikeId` _Required_
-
-This should be the id of your bike.
-
-This value can be obtained from the vanmoof api.
-
-#### `-encryptionKey`
+#### `-encryptionKey` _Recommended_
 
 Tries to decrypt the bluetooth packet values. Without this argument you can see wich characteristics that are send/recived but cannot really see the values unless you want to decrypt them yourself.
 
 This should be the encryption key of your bike
 
 This value can be obtained from the vanmoof api.
+
+#### `-bikeId`
+
+This property can be set if multiple vanmoof bikes are in your bluetooth sniff.
+
+This should be the mac address of your bike, the mac address can be seperated with ` ` or `:`
 
 ### `-hideChallenges`
 
