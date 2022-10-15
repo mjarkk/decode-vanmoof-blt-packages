@@ -34,12 +34,12 @@ fn main() {
     }
     let mut content_bytes = parser::Bytes::new(contents);
 
-    let version_number = content_bytes.drain_u32_be();
+    let version_number = content_bytes.drain_u32_big_endian();
     if version_number != 1 {
         panic!("only blt snoop version 1 is supported, got {version_number}")
     }
 
-    let data_link_type = content_bytes.drain_u32_be();
+    let data_link_type = content_bytes.drain_u32_big_endian();
     match data_link_type {
         1001 => {} // Expected
         1002 => panic!("Unsupported Datalink Type: HCI UART (H4)"),
@@ -61,12 +61,12 @@ fn main() {
 
         nr += 1;
 
-        let original_len = content_bytes.drain_u32_be() as usize;
-        let included_len = content_bytes.drain_u32_be() as usize;
-        content_bytes.drain_u32_be(); // packet_record_len
-        content_bytes.drain_u32_be(); // comulative_drops
-        content_bytes.drain_u32_be(); // timestap_seconds
-        content_bytes.drain_u32_be(); // timestap_microseconds
+        let original_len = content_bytes.drain_u32_big_endian() as usize;
+        let included_len = content_bytes.drain_u32_big_endian() as usize;
+        content_bytes.drain_u32_big_endian(); // packet_record_len
+        content_bytes.drain_u32_big_endian(); // comulative_drops
+        content_bytes.drain_u32_big_endian(); // timestap_seconds
+        content_bytes.drain_u32_big_endian(); // timestap_microseconds
 
         let packet_data = content_bytes.drain_bytes(included_len);
         if packet_data.len() > 0 {

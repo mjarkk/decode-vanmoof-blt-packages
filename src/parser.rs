@@ -4,7 +4,7 @@ impl Bytes {
     pub fn new(b: Vec<u8>) -> Self {
         Self(b)
     }
-    pub fn drain_u32_be(&mut self) -> u32 {
+    pub fn drain_u32_big_endian(&mut self) -> u32 {
         u32::from_be_bytes(self.0.drain(..4).collect::<Vec<u8>>().try_into().unwrap())
     }
     pub fn drain_vec(&mut self, range: usize) -> Vec<u8> {
