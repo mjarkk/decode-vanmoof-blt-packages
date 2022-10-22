@@ -96,9 +96,7 @@ impl Parser {
             (0x3e, _) => BltEventMeta::parse(&mut b, nr).map(|ev| BltPacketKind::MetaEvent(ev)),
 
             // Blt Hci Acl
-            (first, second) if second & (0x03 << 4) != 0 => {
-                println!("{:x} {:x} nr:{}", first, second, nr);
-
+            (first, second) if is_blt_hci_acl(second) => {
                 // ..10 .... .... .... = PB Flag: First Automatically Flushable Packet (2)
                 // ..01 .... .... .... = PB Flag: Continuing Fragment (1)
                 b.drain_one();
@@ -109,5 +107,22 @@ impl Parser {
         };
 
         kind.map(|kind| BltPacket { nr, kind })
+    }
+}
+
+fn is_blt_hci_acl(bt: u8) -> bool {
+    // With vm bikes this flag always seems to be this value
+    // 00.. .... .... .... = BC Flag: Point-To-Point (0)
+    if bt & (0x03 << 6) != 0 {
+        return false;
+    }
+
+    // ..10 .... .... .... = PB Flag: First Automatically Flushable Packet (2)
+    // ..01 .... .... .... = PB Flag: Continuing Fragment (1)
+    match (bt >> 4) & 0x03 {
+        0x01 => true,
+        0x02 => true,
+        0x00 => true,
+        _ => false, // 0x03
     }
 }

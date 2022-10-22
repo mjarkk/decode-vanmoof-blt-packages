@@ -2,12 +2,10 @@ use super::{Att, Bytes, Parser};
 
 pub fn parse_blt_hci_acl(p: &mut Parser, b: &mut Bytes, handle: u16, nr: usize) -> Option<Att> {
     let part_data_len = b.drain_u16_little_endian();
-    let mut part_data = b.drain_vec(part_data_len);
-
-    println!("nr: {}", nr);
 
     let (data, attribute_protocol) = if let Some(continueing_fragment) = &mut p.continueing_fragment
     {
+        let mut part_data = b.drain_vec(part_data_len);
         continueing_fragment.data.append(&mut part_data);
         if continueing_fragment.data.len() < continueing_fragment.total_len {
             return None;
@@ -23,6 +21,8 @@ pub fn parse_blt_hci_acl(p: &mut Parser, b: &mut Bytes, handle: u16, nr: usize) 
     } else {
         let data_len = b.drain_u16_little_endian() as usize;
         let attribute_protocol = b.drain_u16_little_endian();
+        let part_data = b.drain_vec(part_data_len - 4);
+
         if part_data.len() < data_len {
             // Expect a Continueing Fragment
             p.continueing_fragment = Some(BltHciAclContinueingFragment {
