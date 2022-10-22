@@ -54,6 +54,7 @@ fn main() {
     // Firstly lets parse the packages
     let mut nr = 0usize;
     let mut packages: Vec<parser::BltPacket> = Vec::new();
+    let mut parser = parser::Parser::new();
     loop {
         if content_bytes.len() == 0 {
             break;
@@ -70,7 +71,7 @@ fn main() {
 
         let packet_data = content_bytes.drain_bytes(included_len);
         if packet_data.len() > 0 {
-            let parsed_packet = parser::BltPacket::parse(packet_data, nr);
+            let parsed_packet = parser.parse(packet_data, nr);
             if let Some(packet) = parsed_packet {
                 packages.push(packet);
             }

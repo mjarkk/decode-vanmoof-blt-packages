@@ -1,8 +1,10 @@
-mod event;
+pub mod att;
 mod hci_acl;
+mod hci_event;
 
-pub use event::*;
+pub use att::*;
 pub use hci_acl::*;
+pub use hci_event::*;
 
 pub struct Bytes(Vec<u8>);
 
@@ -12,6 +14,9 @@ impl Bytes {
     }
     pub fn drain_u32_big_endian(&mut self) -> u32 {
         u32::from_be_bytes(self.0.drain(..4).collect::<Vec<u8>>().try_into().unwrap())
+    }
+    pub fn drain_u16_little_endian(&mut self) -> u16 {
+        u16::from_le_bytes(self.0.drain(..2).collect::<Vec<u8>>().try_into().unwrap())
     }
     pub fn drain_u32_little_endian(&mut self) -> u32 {
         u32::from_le_bytes(self.0.drain(..4).collect::<Vec<u8>>().try_into().unwrap())
@@ -43,23 +48,52 @@ pub struct BltPacket {
 
 pub enum BltPacketKind {
     MetaEvent(BltEventMeta),
+    Att(Att),
 }
 
-impl BltPacket {
-    pub fn parse(mut b: Bytes, nr: usize) -> Option<Self> {
-        let kind = match (b.drain_one(), b.seek(1u8)[0]) {
+pub struct Parser {
+    continueing_fragment: Option<BltHciAclContinueingFragment>,
+}
+
+impl Parser {
+    pub fn new() -> Self {
+        Self {
+            continueing_fragment: None,
+        }
+    }
+    pub fn parse(&mut self, mut b: Bytes, nr: usize) -> Option<BltPacket> {
+        let first = b.drain_one();
+        let second = b.seek(1u8)[0];
+
+        let kind = match (first, second) {
+            // Blt Hci Command:
+            (_, v) if v & 0xfc == (0x3f << 2) => None, // 1111 11.. .... .... = Opcode Group Field: Vendor-Specific Commands (0x3f)
+            (_, v) if v & 0xfc == (0x01 << 2) => None, // 0000 01.. .... .... = Opcode Group Field: Link Control Commands (0x01)
+            (_, v) if v & 0xfc == (0x08 << 2) => None, // 0010 00.. .... .... = Opcode Group Field: LE Controller Commands (0x08)
+            (_, v) if v & 0xfc == (0x05 << 2) => None, // 0001 01.. .... .... = Opcode Group Field: Status Parameters (0x05)
+
             // Blt Hci events:
-            (0x01, _) => None, // BLT HCI Event: Inquiry Complete
-            (0x0c, _) => None, // BLT HCI Event: Read Remote Version Information Complete
-            (0x0e, _) => None, // BLT HCI Event: Command Complete
-            (0x0f, _) => None, // BLT HCI Event: Command Status
-            (0x13, _) => None, // BLT HCI Event: Number of Completed Packets
-            (0x2f, _) => None, // BLT HCI Event: Extended Inquiry Result
+            (0x01, _) => None, // Inquiry Complete
+            (0x0c, _) => None, // Read Remote Version Information Complete
+            (0x0e, _) => None, // Command Complete
+            (0x0f, _) => None, // Command Status
+            (0x13, _) => None, // Number of Completed Packets
+            (0x2f, _) => None, // Extended Inquiry Result
             (0x3e, _) => BltEventMeta::parse(&mut b, nr).map(|ev| BltPacketKind::MetaEvent(ev)),
-            //
+
+            // Blt Hci Acl
+            (first, second) if second & (0x03 << 4) != 0 => {
+                println!("{:x} {:x} nr:{}", first, second, nr);
+
+                // ..10 .... .... .... = PB Flag: First Automatically Flushable Packet (2)
+                // ..01 .... .... .... = PB Flag: Continuing Fragment (1)
+                b.drain_one();
+                let handle = ((first as u16) << 8 | second as u16) & 0x0fff;
+                parse_blt_hci_acl(self, &mut b, handle, nr).map(|v| BltPacketKind::Att(v))
+            }
             _ => None,
         };
 
-        kind.map(|kind| Self { nr, kind })
+        kind.map(|kind| BltPacket { nr, kind })
     }
 }
