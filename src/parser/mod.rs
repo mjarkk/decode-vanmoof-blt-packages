@@ -69,7 +69,21 @@ impl Parser {
             // Blt Hci Command:
             (_, v) if v & 0xfc == (0x3f << 2) => None, // 1111 11.. .... .... = Opcode Group Field: Vendor-Specific Commands (0x3f)
             (_, v) if v & 0xfc == (0x01 << 2) => None, // 0000 01.. .... .... = Opcode Group Field: Link Control Commands (0x01)
-            (_, v) if v & 0xfc == (0x08 << 2) => None, // 0010 00.. .... .... = Opcode Group Field: LE Controller Commands (0x08)
+            (0x05, v)
+            | (0x0c, v)
+            | (0x0b, v)
+            | (0x0d, v)
+            | (0x11, v)
+            | (0x12, v)
+            | (0x16, v)
+            | (0x20, v)
+                if v == (0x08 << 2) =>
+            // 0010 00.. .... .... = Opcode Group Field: LE Controller Commands (0x08)
+            // These bits always seems to be zero .... ..00 .... ....
+            // Hence why we don't zero them out above using: (& 0xfc)
+            {
+                None
+            }
             (_, v) if v & 0xfc == (0x05 << 2) => None, // 0001 01.. .... .... = Opcode Group Field: Status Parameters (0x05)
 
             // Blt Hci events:

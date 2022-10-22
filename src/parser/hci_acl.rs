@@ -4,6 +4,8 @@ pub fn parse_blt_hci_acl(p: &mut Parser, b: &mut Bytes, handle: u16, nr: usize) 
     let part_data_len = b.drain_u16_little_endian();
     let mut part_data = b.drain_vec(part_data_len);
 
+    println!("nr: {}", nr);
+
     let (data, attribute_protocol) = if let Some(continueing_fragment) = &mut p.continueing_fragment
     {
         continueing_fragment.data.append(&mut part_data);
