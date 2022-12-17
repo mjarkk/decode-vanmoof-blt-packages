@@ -1,5 +1,8 @@
-mod parser;
+mod analyzer;
+pub mod parser;
 
+use analyzer::analyze;
+use parser::{BltPacket, BltPacketKind};
 use std::{fs::File, io::Read};
 
 struct Args {
@@ -52,8 +55,8 @@ fn main() {
     }
 
     // Firstly lets parse the packages
-    let mut nr = 0usize;
-    let mut packages: Vec<parser::BltPacket> = Vec::new();
+    let mut nr: usize = 0;
+    let mut packages: Vec<BltPacket> = Vec::new();
     let mut parser = parser::Parser::new();
     loop {
         if content_bytes.len() == 0 {
@@ -82,4 +85,6 @@ fn main() {
             content_bytes.drain(padd_size);
         }
     }
+
+    analyze(packages);
 }

@@ -2,6 +2,8 @@ pub mod att;
 mod hci_acl;
 mod hci_event;
 
+use std::collections::HashMap;
+
 pub use att::*;
 pub use hci_acl::*;
 pub use hci_event::*;
@@ -12,12 +14,15 @@ impl Bytes {
     pub fn new(b: Vec<u8>) -> Self {
         Self(b)
     }
+    // Reading direction: ->
     pub fn drain_u32_big_endian(&mut self) -> u32 {
         u32::from_be_bytes(self.0.drain(..4).collect::<Vec<u8>>().try_into().unwrap())
     }
+    // Reading direction: <-
     pub fn drain_u16_little_endian(&mut self) -> u16 {
         u16::from_le_bytes(self.0.drain(..2).collect::<Vec<u8>>().try_into().unwrap())
     }
+    // Reading direction: <-
     pub fn drain_u32_little_endian(&mut self) -> u32 {
         u32::from_le_bytes(self.0.drain(..4).collect::<Vec<u8>>().try_into().unwrap())
     }
@@ -39,26 +44,29 @@ impl Bytes {
     pub fn seek(&mut self, range: impl Into<usize>) -> &[u8] {
         &self.0[..range.into()]
     }
+    pub fn vec(&mut self) -> &mut Vec<u8> {
+        &mut self.0
+    }
 }
 
 pub struct BltPacket {
-    nr: usize,
-    kind: BltPacketKind,
+    pub nr: usize,
+    pub kind: BltPacketKind,
 }
 
 pub enum BltPacketKind {
     MetaEvent(BltEventMeta),
-    Att(Att),
+    RawAtt(RawAtt),
 }
 
 pub struct Parser {
-    continueing_fragment: Option<BltHciAclContinueingFragment>,
+    continueing_fragment_for_conn_handle: HashMap<u16, BltHciAclContinueingFragment>,
 }
 
 impl Parser {
     pub fn new() -> Self {
         Self {
-            continueing_fragment: None,
+            continueing_fragment_for_conn_handle: HashMap::new(),
         }
     }
     pub fn parse(&mut self, mut b: Bytes, nr: usize) -> Option<BltPacket> {
@@ -99,9 +107,9 @@ impl Parser {
             (first, second) if is_blt_hci_acl(second) => {
                 // ..10 .... .... .... = PB Flag: First Automatically Flushable Packet (2)
                 // ..01 .... .... .... = PB Flag: Continuing Fragment (1)
+                let handle = (first as u16 | (second as u16) << 8) & 0x0fff;
                 b.drain_one();
-                let handle = ((first as u16) << 8 | second as u16) & 0x0fff;
-                parse_blt_hci_acl(self, &mut b, handle, nr).map(|v| BltPacketKind::Att(v))
+                parse_blt_hci_acl(self, &mut b, handle, nr).map(|v| BltPacketKind::RawAtt(v))
             }
             _ => None,
         };
