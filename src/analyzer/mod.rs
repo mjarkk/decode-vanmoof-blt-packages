@@ -1,12 +1,37 @@
+use super::human;
 use super::parser;
 
 use parser::att::RawAtt;
 use parser::{BltPacket, BltPacketKind};
 use std::collections::HashMap;
 
-pub enum ParsedAttRequest {
+pub struct ParsedAttRequest {
+    pub nr: usize,
+    pub content: ParsedAttRequestContent,
+}
+
+pub enum ParsedAttRequestContent {
     Read(AttRead),
     Write(AttWrite),
+}
+
+impl ParsedAttRequestContent {
+    pub fn human(&self) -> String {
+        match self {
+            Self::Read(data) => format!(
+                "Read {} > [{}]",
+                data.human_handle,
+                human::human_u8_list(&data.response_payload),
+            ),
+            Self::Write(data) => {
+                format!(
+                    "Write {} > [{}]",
+                    data.human_handle,
+                    human::human_u8_list(&data.request_payload)
+                )
+            }
+        }
+    }
 }
 
 pub struct AttRead {
@@ -30,7 +55,7 @@ impl AnalyzeState {
         if let Some(att) = self.attributes.get(u) {
             att.clone()
         } else {
-            format!("Unknown att({:#06x})", u)
+            format!("(Unknown att({:#06x}))", u)
         }
     }
 }
@@ -68,8 +93,16 @@ pub fn analyze(packages: Vec<BltPacket>) -> Vec<ParsedAttRequest> {
         };
     }
 
+    let mut keys: Vec<String> = Vec::new();
+    for key in state.attributes.keys() {
+        keys.push(format!("{:#06x}", key));
+    }
+
+    println!("{}", keys.join(", "));
+
     // 2. Analyze the actual read / write att packages
     for pkg in packages.iter() {
+        let mut parsed_content: Option<ParsedAttRequestContent> = None;
         match &pkg.kind {
             BltPacketKind::RawAtt(ev) => match ev {
                 RawAtt::ReadRequest(handle) => {
@@ -77,7 +110,7 @@ pub fn analyze(packages: Vec<BltPacket>) -> Vec<ParsedAttRequest> {
                 }
                 RawAtt::ReadResponse(payload) => {
                     if let Some(handle) = state.last_read_request {
-                        att_requests.push(ParsedAttRequest::Read(AttRead {
+                        parsed_content = Some(ParsedAttRequestContent::Read(AttRead {
                             human_handle: state.human_att(&handle),
                             response_payload: payload.clone(),
                         }));
@@ -91,7 +124,7 @@ pub fn analyze(packages: Vec<BltPacket>) -> Vec<ParsedAttRequest> {
                 }
                 RawAtt::WriteResponse(response_payload) => {
                     if let Some((handle, request_payload)) = &state.last_write_reques {
-                        att_requests.push(ParsedAttRequest::Write(AttWrite {
+                        parsed_content = Some(ParsedAttRequestContent::Write(AttWrite {
                             human_handle: state.human_att(handle),
                             request_payload: request_payload.clone(),
                             response_payload: response_payload.clone(),
@@ -109,6 +142,14 @@ pub fn analyze(packages: Vec<BltPacket>) -> Vec<ParsedAttRequest> {
                 // FIXME implement me!
             }
         };
+
+        // Check if the content was parsed thus important to show to the user
+        if let Some(content) = parsed_content {
+            att_requests.push(ParsedAttRequest {
+                nr: pkg.nr,
+                content: content,
+            });
+        }
     }
 
     if state.last_read_request.is_some() {

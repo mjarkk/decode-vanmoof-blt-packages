@@ -1,6 +1,5 @@
-use std::ops::Add;
-
 use super::Bytes;
+use crate::human;
 
 pub enum RawAtt {
     ReadRequest(u16), // The argument is the handle
@@ -147,12 +146,7 @@ impl UuidKind {
         let bytes = match self {
             Self::Full(bytes) | Self::Short(bytes) => bytes,
         };
-
-        let mut response = String::new();
-        for b in bytes {
-            response = format!("{:02x}{}", b, response)
-        }
-        response
+        human::to_hex(bytes).join("")
     }
 }
 

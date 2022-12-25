@@ -1,4 +1,5 @@
 mod analyzer;
+pub mod human;
 pub mod parser;
 
 use analyzer::analyze;
@@ -86,5 +87,8 @@ fn main() {
         }
     }
 
-    analyze(packages);
+    let parsed_packages = analyze(packages);
+    for package in parsed_packages {
+        println!("#{} {}", package.nr, package.content.human());
+    }
 }
